@@ -1,27 +1,192 @@
 <!DOCTYPE html>
 <html>
-<head><title>Demo Shop</title></head>
+<head>
+  <meta charset="UTF-8">
+  <!-- FAIL: document-title — no <title> element -->
+</head>
 <body>
-  <div style="color:#aaa;background:#ccc;font-size:10px">
-    Special offer today only
-  </div>
+
+  <!-- ── 1.1.1 Image Alt Text ─────────────────────────────────── -->
+  <!-- FAIL: image-alt -->
   <img src="product.jpg">
+
+  <!-- FAIL: image-alt (role not set, alt missing) -->
+  <img src="decorative-divider.png">
+
+  <!-- PASS -->
+  <img src="widget.jpg" alt="Blue Widget product photo">
+
+  <!-- PASS: decorative -->
+  <img src="decorative-divider.png" alt="" role="presentation">
+
+
+  <!-- ── 1.3.1 Form Labels ─────────────────────────────────────── -->
+  <!-- FAIL: label — input has no associated label -->
   <input type="text" placeholder="Enter your email address">
   <input type="password" placeholder="Password">
-  <button>
-    <svg viewBox="0 0 24 24" width="24" height="24">
-      <path d="M5 12h14M12 5l7 7-7 7"/>
-    </svg>
-  </button>
-  <div onclick="buy()" style="cursor:pointer;background:#eee;padding:10px">
-    Complete Purchase
-  </div>
-  <a href="#">Click here</a>
-  <a href="#">Click here</a>
-  <a href="#">Read more</a>
+
+  <!-- FAIL: select-name — select has no label -->
+  <select>
+    <option>Sort by: Price</option>
+    <option>Sort by: Rating</option>
+  </select>
+
+  <!-- PASS -->
+  <label for="email">Email address</label>
+  <input id="email" type="email" autocomplete="email">
+
+  <label for="pass">Password</label>
+  <input id="pass" type="password" autocomplete="current-password">
+
+  <label for="sort">Sort by</label>
+  <select id="sort">
+    <option>Price</option>
+    <option>Rating</option>
+  </select>
+
+
+  <!-- ── 1.3.1 Table Headers ───────────────────────────────────── -->
+  <!-- FAIL: td-headers-attr / table-duplicate-name -->
   <table>
     <tr><td>Product</td><td>Price</td></tr>
     <tr><td>Widget</td><td>$29</td></tr>
   </table>
+
+  <!-- PASS -->
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Product</th>
+        <th scope="col">Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Widget</td><td>$29</td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- ── 1.4.3 Colour Contrast ─────────────────────────────────── -->
+  <!-- FAIL: color-contrast (~1.6:1) -->
+  <div style="color:#aaa; background:#ccc; font-size:16px; padding:8px;">
+    Special offer today only
+  </div>
+
+  <!-- FAIL: color-contrast — large text still insufficient (~2.3:1) -->
+  <p style="color:#bbb; background:#fff; font-size:24px; font-weight:bold;">Sale ends Sunday</p>
+
+  <!-- PASS -->
+  <div style="color:#1a1a1a; background:#fff; font-size:16px; padding:8px;">
+    Special offer today only
+  </div>
+
+
+  <!-- ── 1.4.11 Non-text Contrast ──────────────────────────────── -->
+  <!-- FAIL: color-contrast (UI component boundary ~1.6:1) -->
+  <input type="text" placeholder="Search" style="border: 1px solid #ccc; padding: 6px;">
+
+  <!-- PASS -->
+  <input type="text" placeholder="Search" style="border: 2px solid #767676; padding: 6px;">
+
+
+  <!-- ── 2.1.1 / 4.1.2 Interactive Elements ────────────────────── -->
+  <!-- FAIL: button-name — icon button, no accessible name -->
+  <button>
+    <svg viewBox="0 0 24 24" width="24" height="24">
+      <path d="M5 12h14M12 5l7 7-7 7" stroke="#333" fill="none"/>
+    </svg>
+  </button>
+
+  <!-- FAIL: region / landmark — clickable div, not a button -->
+  <div onclick="buy()" style="cursor:pointer; background:#eee; padding:10px;">
+    Complete Purchase
+  </div>
+
+  <!-- PASS -->
+  <button aria-label="Proceed to checkout">
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <path d="M5 12h14M12 5l7 7-7 7" stroke="#333" fill="none"/>
+    </svg>
+  </button>
+
+  <button onclick="buy()" style="padding:10px 20px;">Complete Purchase</button>
+
+
+  <!-- ── 2.4.1 Skip Link ───────────────────────────────────────── -->
+  <!-- FAIL: bypass — no skip navigation link -->
+  <!-- (absence of skip link; axe flags when there are repeated nav blocks) -->
+
+
+  <!-- ── 2.4.2 Page Title ──────────────────────────────────────── -->
+  <!-- FAIL: document-title — flagged due to missing <title> in <head> above -->
+
+
+  <!-- ── 3.1.1 Page Language ───────────────────────────────────── -->
+  <!-- FAIL: html-has-lang — no lang on <html> element -->
+
+
+  <!-- ── 4.1.1 Parsing ─────────────────────────────────────────── -->
+  <!-- FAIL: duplicate-id -->
+  <div id="promo">Offer A</div>
+  <div id="promo">Offer B</div>
+
+  <!-- FAIL: duplicate-id-active (on interactive elements) -->
+  <input id="dup-input" type="text">
+  <input id="dup-input" type="text">
+
+  <!-- PASS -->
+  <div id="promo-a">Offer A</div>
+  <div id="promo-b">Offer B</div>
+
+
+  <!-- ── 4.1.2 ARIA ─────────────────────────────────────────────── -->
+  <!-- FAIL: aria-required-attr — role without required ARIA attrs -->
+  <div role="checkbox" style="cursor:pointer;">☐ I agree to the terms</div>
+
+  <!-- FAIL: aria-allowed-attr — invalid aria attribute for role -->
+  <div role="link" aria-checked="true" tabindex="0">View details</div>
+
+  <!-- FAIL: aria-valid-attr-value — invalid value -->
+  <div role="button" aria-expanded="yes">Menu</div>
+
+  <!-- PASS -->
+  <div role="checkbox" aria-checked="false" tabindex="0"
+       onkeydown="if(event.key===' ')this.click()"
+       onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')">
+    ☐ I agree to the terms
+  </div>
+
+
+  <!-- ── 4.1.3 Status Messages ─────────────────────────────────── -->
+  <!-- FAIL: aria-live missing on status region -->
+  <div id="status-bad" style="color:green;"></div>
+  <button onclick="document.getElementById('status-bad').textContent='Added to cart'">
+    Add to Cart (no live region)
+  </button>
+
+  <!-- PASS -->
+  <div id="status-good" role="status" aria-live="polite" style="color:green;"></div>
+  <button onclick="document.getElementById('status-good').textContent='Added to cart'">
+    Add to Cart
+  </button>
+
+
+  <!-- ── 1.3.5 Autocomplete ─────────────────────────────────────── -->
+  <!-- FAIL: autocomplete-valid — type mismatch -->
+  <label for="tel-bad">Phone</label>
+  <input id="tel-bad" type="text" autocomplete="email">
+
+  <!-- PASS -->
+  <label for="tel-good">Phone</label>
+  <input id="tel-good" type="tel" autocomplete="tel">
+
+
+  <!-- ── Frame / iframe title ──────────────────────────────────── -->
+  <!-- FAIL: frame-title -->
+  <iframe src="promo.html" width="300" height="100"></iframe>
+
+  <!-- PASS -->
+  <iframe src="promo.html" title="Promotional offer" width="300" height="100"></iframe>
+
 </body>
 </html>

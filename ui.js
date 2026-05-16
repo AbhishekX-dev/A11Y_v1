@@ -91,10 +91,9 @@ export function printViolationCard(issue) {
   console.log(`${C.dark}│${C.reset}  ${sevColor}╰${repeat('─', WIDTH - 2)}╯${C.reset}`);
 }
 
-export function printSummary(stats) {
+export function printSummary(stats, url) {
   const { total, autoEscalated, humanReview, logOnly, issuesCreated, recommendation } = stats;
   const recColor = recommendation === 'DO NOT SHIP' ? C.red : C.yellow;
-  
   console.log(`\n${C.purple}╭─ SUMMARY ${repeat('─', WIDTH - 9)}╮${C.reset}`);
   console.log(`${C.purple}│${C.reset} ${C.white}Violations Analyzed : ${C.bold}${total}${C.reset}`);
   console.log(`${C.purple}│${C.reset} ${C.green}Auto-escalated      : ${C.bold}${autoEscalated}${C.reset} ${C.dim}(PRs generated)${C.reset}`);

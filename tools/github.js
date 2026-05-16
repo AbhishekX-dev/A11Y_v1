@@ -1,7 +1,8 @@
-export async function fetchGitHubAPI(path, method = 'GET', body = null) {
+export async function fetchGitHubAPI(path, method = 'GET', body
+  = null) {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO;
-  
+
   const options = {
     method,
     headers: {
@@ -10,13 +11,13 @@ export async function fetchGitHubAPI(path, method = 'GET', body = null) {
       'Accept': 'application/vnd.github.v3+json'
     }
   };
-  
+
   if (body) {
     options.body = JSON.stringify(body);
   }
 
   const response = await fetch(`https://api.github.com/repos/${repo}${path}`, options);
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(`GitHub API error (${response.status}): ${errorData.message || response.statusText}`);
