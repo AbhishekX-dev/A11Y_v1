@@ -158,6 +158,13 @@ Return only the raw JSON array. No markdown. No explanation. No code fences.`;
   // Strip markdown code fences if model ignores instructions
   content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
 
+  // Extract JSON array if the model includes conversational text
+  const startIndex = content.indexOf('[');
+  const endIndex = content.lastIndexOf(']');
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    content = content.substring(startIndex, endIndex + 1);
+  }
+
   try {
     return JSON.parse(content);
   } catch (e) {
