@@ -94,13 +94,16 @@ export function printViolationCard(issue) {
   console.log(`  ${sevColor}└${repeat('─', WIDTH)}┘${C.reset}`);
 }
 
-export function printSummary(stats) {
+export function printSummary(stats, url) {
   const { total, autoEscalated, humanReview, logOnly, issuesCreated, recommendation } = stats;
   const recColor = recommendation === 'DO NOT SHIP' ? C.red : C.yellow;
   const line = repeat('═', WIDTH);
 
   console.log(`\n${C.cyan}${line}${C.reset}`);
   console.log(`${C.bold}${C.white}  📊 AGENT AUDIT COMPLETE${C.reset}`);
+  if (url) {
+    console.log(`  ${C.gray}URL: ${url}${C.reset}`);
+  }
   console.log(`${C.cyan}${line}${C.reset}`);
   console.log(`  ${C.white}Total violations analyzed : ${C.bold}${total}${C.reset}`);
   console.log(`  ${C.green}Auto-escalated (≥80%)    : ${C.bold}${autoEscalated}${C.reset}`);

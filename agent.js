@@ -327,7 +327,7 @@ async function runAudit(url, exitOnError = true) {
       logOnly,
       issuesCreated,
       recommendation: hasCritical ? 'DO NOT SHIP' : 'REVIEW REQUIRED'
-    });
+    }, url);
 
   } catch (err) {
     printLog('Error', err.message, 'red');
@@ -398,7 +398,7 @@ async function auditSite(baseUrl, options) {
       }
 
       if (i < urls.length - 1) {
-        const answer = await askQuestion('\nPress [Enter] to continue to the next page, or type "q" to quit: ');
+        const answer = await askQuestion(`\nNext up: ${urls[i + 1]}\nPress [Enter] to continue to the next page, or type "q" to quit: `);
         if (answer.toLowerCase() === 'q') {
           printLog('Info', 'Batch audit aborted by user.', 'yellow');
           break;
