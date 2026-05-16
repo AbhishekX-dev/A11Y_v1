@@ -2,7 +2,7 @@ import 'dotenv/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { Command } from 'commander';
 import { scanPage } from './tools/scanner.js';
-import { createGitHubIssue } from './tools/github.js';
+import { createGitHubIssue, getDefaultBranchSha, createBranch, getFile, updateFile, createPullRequest } from './tools/github.js';
 import { getMcpClient } from './tools/mcp.js';
 import {
   printBanner,
@@ -83,12 +83,14 @@ Return only the raw JSON array. No markdown. No explanation. No code fences.`;
         messages.push({ role: "assistant", content: msg.content });
         for (const content of msg.content) {
           if (content.type === "tool_use") {
+            printLog('Tool Use', `Executing MCP tool: ${content.name}...`, 'cyan');
             const mcpClient = await getMcpClient();
             try {
               const result = await mcpClient.callTool({
                 name: content.name,
                 arguments: content.input
               });
+              printLog('Tool Use', `✓ MCP tool ${content.name} returned successfully`, 'green');
               messages.push({
                 role: "user",
                 content: [
@@ -296,8 +298,49 @@ async function audit(url) {
             const ghIssue = await createGitHubIssue({ title, body, labels });
             printLog('Action', `✓ Issue #${ghIssue.number} → ${ghIssue.html_url}`, 'green');
             issuesCreated.push({ number: ghIssue.number, url: ghIssue.html_url });
+
+            if (issue.remediationHint?.current && issue.remediationHint?.suggested) {
+              printLog('Action', 'Generating suggested patch and Draft PR...', 'cyan');
+              
+              const { branch: defaultBranch, sha: baseSha } = await getDefaultBranchSha();
+              const branchName = `fix/a11y-issue-${ghIssue.number}`;
+              await createBranch(branchName, baseSha);
+              
+              const targetPath = 'index.html';
+              const fileData = await getFile(targetPath, defaultBranch);
+              
+              if (fileData) {
+                const newContent = fileData.content.replace(
+                  issue.remediationHint.current.trim(),
+                  issue.remediationHint.suggested.trim()
+                );
+                
+                if (newContent !== fileData.content) {
+                  await updateFile({
+                    path: targetPath,
+                    content: newContent,
+                    message: `Fix ${issue.severity} accessibility issue: ${issue.description}\n\nResolves #${ghIssue.number}`,
+                    branch: branchName,
+                    sha: fileData.sha
+                  });
+                  
+                  const pr = await createPullRequest({
+                    title: `[A11y] Fix: ${issue.description}`,
+                    body: `This PR fixes the accessibility issue described in #${ghIssue.number}.\n\n### Changes Made\n\`\`\`html\n- ${issue.remediationHint.current.trim()}\n+ ${issue.remediationHint.suggested.trim()}\n\`\`\`\n\n**Note:** This is an AI-generated draft PR. Please review before merging.`,
+                    head: branchName,
+                    base: defaultBranch,
+                    draft: true
+                  });
+                  printLog('Action', `✓ Draft PR Created: #${pr.number} → ${pr.html_url}`, 'green');
+                } else {
+                  printLog('Error', 'Could not apply patch: Current code snippet not exactly found in target file.', 'gray');
+                }
+              } else {
+                printLog('Error', `Target file ${targetPath} not found in repository. Cannot create PR.`, 'gray');
+              }
+            }
           } catch (err) {
-            printLog('Error', `GitHub issue creation failed: ${err.message}`, 'red');
+            printLog('Error', `GitHub action failed: ${err.message}`, 'red');
           }
         } else {
           printLog('Action', `[Would create issue] ${issue.severity}: ${issue.description}`, 'gray');

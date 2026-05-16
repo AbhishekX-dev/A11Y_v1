@@ -1,52 +1,55 @@
-// ANSI color codes
+// ANSI color codes for a sleek modern CLI (Claude-like)
 const C = {
   reset:   '\x1b[0m',
   bold:    '\x1b[1m',
   dim:     '\x1b[2m',
-  red:     '\x1b[31m',
-  green:   '\x1b[32m',
-  yellow:  '\x1b[33m',
-  cyan:    '\x1b[36m',
-  magenta: '\x1b[35m',
-  white:   '\x1b[37m',
-  gray:    '\x1b[90m',
-  bgRed:   '\x1b[41m',
+  red:     '\x1b[38;5;196m',
+  green:   '\x1b[38;5;48m',
+  yellow:  '\x1b[38;5;226m',
+  cyan:    '\x1b[38;5;51m',
+  magenta: '\x1b[38;5;207m', // Claude-like purple
+  purple:  '\x1b[38;5;141m', 
+  white:   '\x1b[38;5;255m',
+  gray:    '\x1b[38;5;242m',
+  dark:    '\x1b[38;5;236m',
 };
 
-const WIDTH = 62;
+const WIDTH = 68;
 
 function repeat(char, n) {
   return char.repeat(n);
 }
 
 export function printBanner() {
-  const line = repeat('═', WIDTH);
-  console.log(`\n${C.cyan}${line}${C.reset}`);
-  console.log(`${C.bold}${C.white}  🤖 AI Accessibility QA Agent${C.reset}`);
-  console.log(`${C.gray}  QA Fraternity AI Agent Hackathon 2026${C.reset}`);
-  console.log(`${C.cyan}  Observe → Reason → Act${C.reset}`);
-  console.log(`${C.cyan}${line}${C.reset}\n`);
+  console.log(`\n${C.purple}    ╭───╮${C.reset}`);
+  console.log(`${C.purple}  ╭─╯   ╰─╮${C.reset}  ${C.bold}${C.white}WCAGent${C.reset}`);
+  console.log(`${C.purple}  ╰─╮   ╭─╯${C.reset}  ${C.cyan}AI Accessibility QA Agent${C.reset}`);
+  console.log(`${C.purple}    ╰───╯${C.reset}`);
+  console.log(`\n${C.dark}  ${repeat('─', WIDTH)}${C.reset}\n`);
 }
 
 export function printPhase(phase, message) {
   const phaseColors = {
     OBSERVE: C.cyan,
-    REASON:  C.magenta,
+    REASON:  C.purple,
     DECIDE:  C.yellow,
     ACT:     C.green,
   };
   const color = phaseColors[phase] || C.white;
-  const label = `[${phase}] ${message}`;
-  const totalPad = WIDTH - label.length - 4; // 2 for └ ┘ and 2 for '─ '
+  const label = ` ${phase} `;
+  const totalPad = WIDTH - label.length - 2; 
   const rightPad = Math.max(0, totalPad);
-  const dashes = repeat('─', Math.min(rightPad, WIDTH - label.length - 2));
-  console.log(`\n${color}┌─ ${label} ${dashes}┐${C.reset}`);
+  const dashes = repeat('─', Math.min(rightPad, WIDTH - label.length));
+  
+  console.log(`\n${color}╭─${C.reset}${C.bold}${C.white}${label}${C.reset}${color}${dashes}╮${C.reset}`);
+  console.log(`${color}│${C.reset} ${C.gray}Target:${C.reset} ${C.white}${message}${C.reset}`);
 }
 
 export function printLog(tag, message, color) {
   const colorMap = {
     cyan:    C.cyan,
     magenta: C.magenta,
+    purple:  C.purple,
     yellow:  C.yellow,
     green:   C.green,
     red:     C.red,
@@ -54,8 +57,10 @@ export function printLog(tag, message, color) {
     white:   C.white,
   };
   const col = colorMap[color] || C.white;
-  const paddedTag = tag.padEnd(10);
-  console.log(`  ${col}[${paddedTag}]${C.reset} ${message}`);
+  // Get current time
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  
+  console.log(`${C.dark}│${C.reset} ${C.dim}[${time}]${C.reset} ${col}${tag.padEnd(8)}${C.reset} ${C.white}${message}${C.reset}`);
 }
 
 export function printViolationCard(issue) {
@@ -65,15 +70,9 @@ export function printViolationCard(issue) {
     MEDIUM:   C.cyan,
     LOW:      C.gray,
   };
-  const recColors = {
-    'DO NOT SHIP':      C.red,
-    'SHIP WITH WARNING': C.yellow,
-    'OK TO SHIP':       C.green,
-  };
 
   const sev = (issue.severity || 'MEDIUM').toUpperCase();
   const sevColor = severityColors[sev] || C.white;
-  const recColor = recColors[issue.releaseRecommendation] || C.yellow;
 
   // confidence bar
   const pct = Math.max(0, Math.min(100, issue.confidence || 0));
@@ -83,38 +82,36 @@ export function printViolationCard(issue) {
 
   const affected = Array.isArray(issue.affectedUsers) ? issue.affectedUsers.join(', ') : (issue.affectedUsers || '—');
 
-  const line = repeat('─', WIDTH);
-  console.log(`\n  ${sevColor}┌─ ${sev} ${repeat('─', Math.max(0, WIDTH - sev.length - 4))}┐${C.reset}`);
-  console.log(`  │ ${C.bold}${issue.description || issue.violationId}${C.reset}`);
-  console.log(`  │ ${C.gray}Affected: ${affected}${C.reset}`);
-  console.log(`  │ ${C.dim}Impact:   ${issue.businessImpact || '—'}${C.reset}`);
-  console.log(`  │ ${C.white}Confidence: ${pct}% ${C.cyan}${bar}${C.reset}`);
-  console.log(`  │ ${recColor}Recommendation: ${issue.releaseRecommendation || '—'}${C.reset}`);
-  console.log(`  ${sevColor}└${repeat('─', WIDTH)}┘${C.reset}`);
+  console.log(`${C.dark}│${C.reset}`);
+  console.log(`${C.dark}│${C.reset}  ${sevColor}╭─ ${sev} ${repeat('─', Math.max(0, WIDTH - sev.length - 6))}╮${C.reset}`);
+  console.log(`${C.dark}│${C.reset}  ${sevColor}│${C.reset} ${C.bold}${issue.description || issue.violationId}${C.reset}`);
+  console.log(`${C.dark}│${C.reset}  ${sevColor}│${C.reset} ${C.gray}Affected:${C.reset} ${C.white}${affected}${C.reset}`);
+  console.log(`${C.dark}│${C.reset}  ${sevColor}│${C.reset} ${C.gray}Impact:  ${C.reset} ${C.dim}${issue.businessImpact || '—'}${C.reset}`);
+  console.log(`${C.dark}│${C.reset}  ${sevColor}│${C.reset} ${C.gray}Score:   ${C.reset} ${C.white}${pct}%${C.reset} ${C.cyan}${bar}${C.reset}`);
+  console.log(`${C.dark}│${C.reset}  ${sevColor}╰${repeat('─', WIDTH - 2)}╯${C.reset}`);
 }
 
 export function printSummary(stats) {
   const { total, autoEscalated, humanReview, logOnly, issuesCreated, recommendation } = stats;
   const recColor = recommendation === 'DO NOT SHIP' ? C.red : C.yellow;
-  const line = repeat('═', WIDTH);
-
-  console.log(`\n${C.cyan}${line}${C.reset}`);
-  console.log(`${C.bold}${C.white}  📊 AGENT AUDIT COMPLETE${C.reset}`);
-  console.log(`${C.cyan}${line}${C.reset}`);
-  console.log(`  ${C.white}Total violations analyzed : ${C.bold}${total}${C.reset}`);
-  console.log(`  ${C.green}Auto-escalated (≥80%)    : ${C.bold}${autoEscalated}${C.reset}`);
-  console.log(`  ${C.yellow}Flagged for human review  : ${C.bold}${humanReview}${C.reset}`);
-  console.log(`  ${C.gray}Logged only (<50%)        : ${C.bold}${logOnly}${C.reset}`);
+  
+  console.log(`\n${C.purple}╭─ SUMMARY ${repeat('─', WIDTH - 9)}╮${C.reset}`);
+  console.log(`${C.purple}│${C.reset} ${C.white}Violations Analyzed : ${C.bold}${total}${C.reset}`);
+  console.log(`${C.purple}│${C.reset} ${C.green}Auto-escalated      : ${C.bold}${autoEscalated}${C.reset} ${C.dim}(PRs generated)${C.reset}`);
+  console.log(`${C.purple}│${C.reset} ${C.yellow}Needs Human Review  : ${C.bold}${humanReview}${C.reset}`);
+  console.log(`${C.purple}│${C.reset} ${C.gray}Logged Only         : ${C.bold}${logOnly}${C.reset}`);
 
   if (issuesCreated && issuesCreated.length > 0) {
-    console.log(`\n  ${C.green}GitHub Issues Created:${C.reset}`);
+    console.log(`${C.purple}│${C.reset}`);
+    console.log(`${C.purple}│${C.reset} ${C.bold}Escalations:${C.reset}`);
     issuesCreated.forEach(i => {
-      console.log(`    ${C.green}• Issue #${i.number} → ${i.url}${C.reset}`);
+      console.log(`${C.purple}│${C.reset} ${C.green}↳ ${i.url}${C.reset}`);
     });
   }
 
-  console.log(`\n  ${recColor}${C.bold}▶ FINAL DECISION: ${recommendation}${C.reset}`);
-  console.log(`${C.cyan}${line}${C.reset}\n`);
+  console.log(`${C.purple}│${C.reset}`);
+  console.log(`${C.purple}│${C.reset} ${C.gray}Decision:${C.reset} ${recColor}${C.bold}${recommendation}${C.reset}`);
+  console.log(`${C.purple}╰${repeat('─', WIDTH)}╯${C.reset}\n`);
 }
 
 export function printSpinner(message) {
@@ -122,21 +119,24 @@ export function printSpinner(message) {
   let i = 0;
   let timer = null;
 
+  // Get current time for spinner
+  const getTime = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
   return {
     start() {
-      process.stdout.write(`  ${frames[0]} ${message}`);
+      process.stdout.write(`${C.dark}│${C.reset} ${C.dim}[${getTime()}]${C.reset} ${C.cyan}${frames[0]}${C.reset} ${C.white}${message}${C.reset}`);
       timer = setInterval(() => {
         i = (i + 1) % frames.length;
-        process.stdout.write(`\r  ${C.cyan}${frames[i]}${C.reset} ${message}`);
+        process.stdout.write(`\r${C.dark}│${C.reset} ${C.dim}[${getTime()}]${C.reset} ${C.cyan}${frames[i]}${C.reset} ${C.white}${message}${C.reset}`);
       }, 80);
     },
     stop(successMsg) {
       if (timer) clearInterval(timer);
-      process.stdout.write(`\r  ${C.green}✓${C.reset} ${successMsg}\n`);
+      process.stdout.write(`\r${C.dark}│${C.reset} ${C.dim}[${getTime()}]${C.reset} ${C.green}✓${C.reset} ${C.white}${successMsg}${C.reset}${repeat(' ', 20)}\n`);
     },
     fail(errorMsg) {
       if (timer) clearInterval(timer);
-      process.stdout.write(`\r  ${C.red}✗${C.reset} ${errorMsg}\n`);
+      process.stdout.write(`\r${C.dark}│${C.reset} ${C.dim}[${getTime()}]${C.reset} ${C.red}✗${C.reset} ${C.red}${errorMsg}${C.reset}${repeat(' ', 20)}\n`);
     }
   };
 }
