@@ -1,9 +1,11 @@
 import 'dotenv/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { Command } from 'commander';
+import readline from 'readline';
 import { scanPage } from './tools/scanner.js';
 import { createGitHubIssue } from './tools/github.js';
 import { getMcpClient } from './tools/mcp.js';
+import { findSitemap, extractUrlsFromSitemap, crawlSite } from './tools/crawler.js';
 import {
   printBanner,
   printPhase,
@@ -215,7 +217,7 @@ ${issue.remediationHint?.explanation || ''}
 
 // ─── Main Audit Function ──────────────────────────────────────────────────────
 
-async function audit(url) {
+async function runAudit(url, exitOnError = true) {
   try {
     // ── PHASE 1: OBSERVE ──────────────────────────────────────────
     printBanner();
@@ -326,6 +328,85 @@ async function audit(url) {
       issuesCreated,
       recommendation: hasCritical ? 'DO NOT SHIP' : 'REVIEW REQUIRED'
     });
+
+  } catch (err) {
+    printLog('Error', err.message, 'red');
+    if (exitOnError) process.exit(1);
+    else throw err;
+  }
+}
+
+// ─── Site Automation Function ──────────────────────────────────────────────────
+
+function askQuestion(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise(resolve => rl.question(query, ans => {
+    rl.close();
+    resolve(ans);
+  }));
+}
+
+async function auditSite(baseUrl, options) {
+  try {
+    printBanner();
+    printPhase('DISCOVER', `Analyzing site structure for ${baseUrl}`);
+
+    let urls = [];
+    
+    if (options.crawler) {
+      printLog('Info', 'User forced Playwright crawler (--crawler flag).', 'cyan');
+      const spinner = printSpinner('Crawling site for links...');
+      spinner.start();
+      urls = await crawlSite(baseUrl);
+      spinner.stop(`Found ${urls.length} URLs`);
+    } else {
+      printLog('Info', 'Checking for sitemap.xml...', 'cyan');
+      const sitemapUrl = await findSitemap(baseUrl);
+
+      if (sitemapUrl) {
+        printLog('Success', `Found sitemap at: ${sitemapUrl}`, 'green');
+        printLog('Info', 'Extracting URLs from sitemap...', 'cyan');
+        urls = await extractUrlsFromSitemap(sitemapUrl);
+      } else {
+        printLog('Warning', 'No sitemap found. Falling back to Playwright Crawler.', 'yellow');
+        const spinner = printSpinner('Crawling site for links...');
+        spinner.start();
+        urls = await crawlSite(baseUrl);
+        spinner.stop(`Found ${urls.length} URLs`);
+      }
+    }
+
+    if (urls.length === 0) {
+      printLog('Error', 'No URLs found to scan.', 'red');
+      return;
+    }
+
+    printLog('Success', `Found ${urls.length} pages. Starting batch audit...`, 'green');
+
+    for (let i = 0; i < urls.length; i++) {
+      console.log(`\n======================================================`);
+      console.log(`  Auditing Page ${i + 1} of ${urls.length}: ${urls[i]}`);
+      console.log(`======================================================\n`);
+      try {
+        await runAudit(urls[i], false);
+      } catch (err) {
+        printLog('Error', `Audit failed for ${urls[i]}: ${err.message}`, 'red');
+      }
+
+      if (i < urls.length - 1) {
+        const answer = await askQuestion('\nPress [Enter] to continue to the next page, or type "q" to quit: ');
+        if (answer.toLowerCase() === 'q') {
+          printLog('Info', 'Batch audit aborted by user.', 'yellow');
+          break;
+        }
+      }
+    }
+
+    printLog('Success', 'Finished batch audit of the entire site.', 'green');
 
   } catch (err) {
     printLog('Error', err.message, 'red');
@@ -442,7 +523,13 @@ program
 program
   .command('audit <url>')
   .description('Scan a URL for WCAG violations and auto-file GitHub issues')
-  .action(audit);
+  .action((url) => runAudit(url, true));
+
+program
+  .command('audit-site <baseUrl>')
+  .description('Automatically discover and scan all pages on a site (via sitemap or crawler)')
+  .option('-c, --crawler', 'Force using the Playwright crawler instead of looking for a sitemap')
+  .action((baseUrl, options) => auditSite(baseUrl, options));
 
 program
   .command('explain <violationId>')

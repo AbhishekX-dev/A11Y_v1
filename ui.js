@@ -39,7 +39,8 @@ export function printPhase(phase, message) {
   const label = `[${phase}] ${message}`;
   const totalPad = WIDTH - label.length - 4; // 2 for └ ┘ and 2 for '─ '
   const rightPad = Math.max(0, totalPad);
-  const dashes = repeat('─', Math.min(rightPad, WIDTH - label.length - 2));
+  const numDashes = Math.max(0, Math.min(rightPad, WIDTH - label.length - 2));
+  const dashes = repeat('─', numDashes);
   console.log(`\n${color}┌─ ${label} ${dashes}┐${C.reset}`);
 }
 
