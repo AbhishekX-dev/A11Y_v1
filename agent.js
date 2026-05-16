@@ -11,7 +11,10 @@ import {
   printSpinner
 } from './ui.js';
 
-// ─── MiniMax Reasoning Function ─────────────────────────────────────────────
+// ─── Ollama (llama3.1) Reasoning Function ────────────────────────────────────
+
+const OLLAMA_BASE_URL = process.env.OLLAMA_HOST || 'http://localhost:11434';
+const OLLAMA_MODEL    = process.env.OLLAMA_MODEL || 'llama3.1';
 
 async function reasonWithMiniMax(violations, url) {
   const prompt = `You are auditing the webpage: ${url}
@@ -38,67 +41,38 @@ Analyze each violation and return a JSON array where each item has exactly this 
 
 Return only the raw JSON array. No markdown. No explanation. No code fences.`;
 
-  const groupId = process.env.MINIMAX_GROUP_ID;
-  const apiKey = process.env.MINIMAX_API_KEY;
-  const baseUrl = 'https://api.minimax.io/v1/text/chatcompletion_v2';
-  const url_with_group = groupId && groupId !== 'paste_your_group_id_here'
-    ? `${baseUrl}?GroupId=${groupId}`
-    : baseUrl;
-
-  const response = await fetch(url_with_group, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'MiniMax-M2',
-      max_tokens: 4000,
-      temperature: 0.2,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert accessibility QA engineer. Always respond with valid JSON only. No markdown, no explanation outside the JSON array. No code fences.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    })
-  });
-
-    if (!response.ok || (await response.clone().json()).base_resp?.status_code !== 0) {
-      const data = await response.json();
-      const errMsg = data.base_resp?.status_msg || data.error?.message || `HTTP ${response.status}`;
-      
-      // Fallback Mode: If API key fails, provide realistic mock data so the hackathon demo still works
-      printLog('Warning', `MiniMax API error: ${errMsg}`, 'yellow');
-      printLog('Info', 'Falling back to local Mock Reasoning Mode for Demo...', 'blue');
-      
-      return violations.map(v => {
-        const confidence = v.impact === 'critical' ? 95 : v.impact === 'serious' ? 85 : 45;
-        const severityStr = v.impact === 'critical' ? 'CRITICAL' : v.impact === 'serious' ? 'HIGH' : 'MEDIUM';
-        return {
-          violationId: v.id,
-          description: v.description,
-          affectedUsers: "[MOCK] Users relying on screen readers or keyboard navigation.",
-          businessImpact: "[MOCK] Non-compliance risks legal action and blocks visually impaired users from core functionality.",
-          severity: severityStr,
-          confidence: confidence,
-          releaseRecommendation: confidence >= 80 ? "DO NOT SHIP" : "SHIP WITH WARNING",
-          remediationHint: {
-            current: `<${v.nodes?.[0]?.html?.substring(0, 20) || 'Missing element'}...>`,
-            suggested: `<!-- [MOCK FIX] Follow WCAG guidelines for ${v.id} -->`,
-            explanation: "[MOCK] Implementing this fix ensures assistive technologies can parse the element."
+  let response;
+  try {
+    response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        stream: false,
+        options: { temperature: 0.2 },
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert accessibility QA engineer. Always respond with valid JSON only. No markdown, no explanation outside the JSON array. No code fences.'
           },
-          escalate: confidence >= 80
-        };
-      });
-    }
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
+    });
+  } catch (fetchErr) {
+    throw new Error(`Cannot reach Ollama at ${OLLAMA_BASE_URL} — is it running? (${fetchErr.message})`);
+  }
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Ollama returned HTTP ${response.status}: ${errText}`);
+  }
 
   const data = await response.json();
-  let content = data.choices[0].message.content;
+  let content = data.message?.content ?? '';
 
   // Strip markdown code fences if model ignores instructions
   content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -106,8 +80,8 @@ Return only the raw JSON array. No markdown. No explanation. No code fences.`;
   try {
     return JSON.parse(content);
   } catch (e) {
-    console.error('Raw MiniMax response:', content);
-    throw new Error('Failed to parse MiniMax response as JSON');
+    console.error('Raw Ollama response:', content);
+    throw new Error('Failed to parse Ollama response as JSON — try a model with better instruction-following');
   }
 }
 
@@ -189,12 +163,12 @@ async function audit(url) {
     }
 
     // ── PHASE 2: REASON ───────────────────────────────────────────
-    printPhase('REASON', `Sending ${violations.length} violations to MiniMax M2`);
+    printPhase('REASON', `Sending ${violations.length} violations to ${OLLAMA_MODEL} via Ollama`);
     printLog('Reason', 'Analyzing who is affected by each violation...', 'magenta');
     printLog('Reason', 'Calculating business impact and severity...', 'magenta');
     printLog('Reason', 'Generating confidence scores and remediation hints...', 'magenta');
 
-    const spinner2 = printSpinner('MiniMax M2 is reasoning...');
+    const spinner2 = printSpinner(`${OLLAMA_MODEL} is reasoning (this may take a moment)...`);
     spinner2.start();
 
     let reasonedIssues;
@@ -289,36 +263,39 @@ async function explain(violationId) {
     printBanner();
     printPhase('REASON', `Explaining WCAG violation: ${violationId}`);
 
-    const spinner = printSpinner(`Asking MiniMax M2 to explain '${violationId}'...`);
+    const spinner = printSpinner(`Asking ${OLLAMA_MODEL} to explain '${violationId}'...`);
     spinner.start();
 
-    const response = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.MINIMAX_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'MiniMax-M2',
-        max_tokens: 300,
-        temperature: 0.3,
-        messages: [
-          {
-            role: 'user',
-            content: `Explain WCAG violation '${violationId}' in plain English. Who does it affect, why does it matter, and give a concrete real-world example of the problem. Keep it under 150 words. Write for a developer who is not an accessibility expert.`
-          }
-        ]
-      })
-    });
+    let response;
+    try {
+      response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          stream: false,
+          options: { temperature: 0.3 },
+          messages: [
+            {
+              role: 'user',
+              content: `Explain WCAG violation '${violationId}' in plain English. Who does it affect, why does it matter, and give a concrete real-world example of the problem. Keep it under 150 words. Write for a developer who is not an accessibility expert.`
+            }
+          ]
+        })
+      });
+    } catch (fetchErr) {
+      spinner.fail(`Cannot reach Ollama at ${OLLAMA_BASE_URL} — is it running?`);
+      throw fetchErr;
+    }
 
     if (!response.ok) {
       const errText = await response.text();
-      spinner.fail(`API error: ${response.status}`);
+      spinner.fail(`Ollama error: ${response.status}`);
       throw new Error(errText);
     }
 
     const data = await response.json();
-    const explanation = data.choices[0].message.content;
+    const explanation = data.message?.content ?? '';
 
     spinner.stop('Explanation ready');
     console.log('');
