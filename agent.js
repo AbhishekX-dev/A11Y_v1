@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Command } from 'commander';
 import readline from 'readline';
 import { scanPage } from './tools/scanner.js';
-import { createGitHubIssue, getDefaultBranchSha, createBranch, getFile, updateFile, createPullRequest } from './tools/github.js';
+import { createGitHubIssue, getDefaultBranchSha, createBranch, getFile, updateFile, createPullRequest, setGitHubRepo, getGitHubRepo } from './tools/github.js';
 import { getMcpClient } from './tools/mcp.js';
 import { findSitemap, extractUrlsFromSitemap, crawlSite } from './tools/crawler.js';
 import {
@@ -226,8 +226,11 @@ ${issue.remediationHint?.explanation || ''}
 
 // ─── Main Audit Function ──────────────────────────────────────────────────────
 
-async function runAudit(url, exitOnError = true) {
+async function runAudit(url, targetRepo, exitOnError = true) {
   try {
+    if (targetRepo) {
+      setGitHubRepo(targetRepo);
+    }
     // ── PHASE 1: OBSERVE ──────────────────────────────────────────
     printBanner();
     printPhase('OBSERVE', `Scanning ${url}`);
@@ -270,14 +273,19 @@ async function runAudit(url, exitOnError = true) {
     spinner2.stop(`Reasoning complete — ${reasonedIssues.length} issues analyzed`);
 
     // ── PHASE 3: DECIDE + ACT ─────────────────────────────────────
-    const githubEnabled = !!(process.env.GITHUB_TOKEN && process.env.GITHUB_TOKEN !== 'paste_your_github_pat_here');
+    const repoToUse = getGitHubRepo();
+    const githubEnabled = !!(process.env.GITHUB_TOKEN && process.env.GITHUB_TOKEN !== 'paste_your_github_pat_here' && repoToUse);
 
     printPhase('DECIDE', 'Applying confidence-based decision logic');
     printLog('Decision', `confidence ≥ 80%   →  AUTO ESCALATE ${githubEnabled ? '(GitHub issue)' : '(terminal only — GitHub not configured)'}`, 'yellow');
     printLog('Decision', 'confidence 50–80%  →  HUMAN REVIEW required', 'yellow');
     printLog('Decision', 'confidence < 50%   →  LOG ONLY', 'yellow');
     if (!githubEnabled) {
-      printLog('Decision', '⚠  GitHub token not set — issue creation skipped', 'gray');
+      if (!repoToUse) {
+        printLog('Decision', '⚠  GitHub repo not set — issue creation skipped. Use --repo <owner/repo> flag or set GITHUB_REPO in .env', 'gray');
+      } else {
+        printLog('Decision', '⚠  GitHub token not set — issue creation skipped', 'gray');
+      }
     }
 
     let autoEscalated = 0;
@@ -442,7 +450,7 @@ async function auditSite(baseUrl, options) {
       console.log(`  Auditing Page ${i + 1} of ${urls.length}: ${urls[i]}`);
       console.log(`======================================================\n`);
       try {
-        await runAudit(urls[i], false);
+        await runAudit(urls[i], options.repo, false);
       } catch (err) {
         printLog('Error', `Audit failed for ${urls[i]}: ${err.message}`, 'red');
       }
@@ -573,12 +581,14 @@ program
 program
   .command('audit <url>')
   .description('Scan a URL for WCAG violations and auto-file GitHub issues')
-  .action((url) => runAudit(url, true));
+  .option('-r, --repo <repo>', 'Target GitHub repository (owner/repo)')
+  .action((url, options) => runAudit(url, options.repo, true));
 
 program
   .command('audit-site <baseUrl>')
   .description('Automatically discover and scan all pages on a site (via sitemap or crawler)')
   .option('-c, --crawler', 'Force using the Playwright crawler instead of looking for a sitemap')
+  .option('-r, --repo <repo>', 'Target GitHub repository (owner/repo)')
   .action((baseUrl, options) => auditSite(baseUrl, options));
 
 program

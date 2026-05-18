@@ -1,7 +1,16 @@
-export async function fetchGitHubAPI(path, method = 'GET', body
-  = null) {
+let dynamicRepo = null;
+
+export function setGitHubRepo(repo) {
+  dynamicRepo = repo;
+}
+
+export function getGitHubRepo() {
+  return dynamicRepo || process.env.GITHUB_REPO;
+}
+
+export async function fetchGitHubAPI(path, method = 'GET', body = null) {
   const token = process.env.GITHUB_TOKEN;
-  const repo = process.env.GITHUB_REPO;
+  const repo = getGitHubRepo();
 
   const options = {
     method,
